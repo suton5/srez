@@ -14,12 +14,9 @@ def _summarize_progress(train_data, feature, label, gene_output, batch, suffix, 
     nearest = tf.image.resize_nearest_neighbor(feature, size)
     nearest = tf.maximum(tf.minimum(nearest, 1.0), 0.0)
 
-    bicubic = tf.image.resize_bicubic(feature, size)
-    bicubic = tf.maximum(tf.minimum(bicubic, 1.0), 0.0)
-
     clipped = tf.maximum(tf.minimum(gene_output, 1.0), 0.0)
 
-    image   = tf.concat([nearest, bicubic, clipped, label], 2)
+    image   = tf.concat([nearest, clipped, label], 2)
 
     image = image[0:max_samples,:,:,:]
     image = tf.concat([image[i,:,:,:] for i in range(max_samples)],0)
