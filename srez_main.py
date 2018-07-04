@@ -2,6 +2,7 @@ import srez_demo
 import srez_input
 import srez_model
 import srez_train
+import srez_infer
 
 import os.path
 import random
@@ -63,6 +64,12 @@ tf.app.flags.DEFINE_string('train_dir', 'train',
 
 tf.app.flags.DEFINE_integer('train_time', 20,
                             "Time in minutes to train the model")
+
+tf.app.flags.DEFINE_string('infile', None,
+                            "Inference input file. See also `outfile`")
+
+tf.app.flags.DEFINE_string('outfile', 'inference_out.png',
+                            "Inference output file. See also `infile`")
 
 def prepare_dirs(delete_train_dir=False):
     # Create checkpoint dir (do not delete anything)
@@ -177,6 +184,91 @@ def _train():
     # Train model
     train_data = TrainData(locals())
     srez_train.train_model(train_data)
+    
+    
+def _evaluate():
+    # Load checkpoint
+    if not tf.gfile.IsDirectory(FLAGS.checkpoint_dir):
+        raise FileNotFoundError("Could not find folder `%s'" % (FLAGS.checkpoint_dir,))
+
+    # Setup global tensorflow state
+    sess, summary_writer = setup_tensorflow()
+
+    # Prepare directories
+    Tfilenames = prepare_dirs(delete_train_dir=False)
+
+    features, labels = srez_input.setup_inputs(sess, Tfilenames)
+
+    # Create and initialize model
+    [gene_minput, gene_moutput,
+    gene_output, gene_var_list,
+    disc_real_output, disc_fake_output, disc_var_list] = \
+            srez_model.create_model(sess, features, labels)
+
+    # Restore variables from checkpoint_dir
+    saver = tf.train.Saver()
+    filename = 'checkpoint_new.txt'
+    filename = os.path.join(FLAGS.checkpoint_dir, filename)
+    saver.restore(sess, filename)
+
+    print("RESTORE model")
+
+    #region prediction test
+    predict_restore = gene_moutput
+
+    # Prepare directories
+    filenames = prepare_dirs(delete_train_dir=False)
+
+    # here you can put your images, just keep the 16 size
+    test_filenames  = ['dataset/101287.jpg', 'dataset/101288.jpg','dataset/101289.jpg', 'dataset/101290.jpg']
+
+    test_features,  test_labels  = srez_input.setup_inputs(sess, test_filenames)
+    test_img4_input, test_img4_original  = sess.run([test_features, test_labels])
+
+
+    test_img5 = (tf.convert_to_tensor(test_img4_input)).eval(session=sess)
+    feed_dict={gene_minput:test_img5}
+    prob =sess.run(predict_restore,feed_dict)
+    #endregion prediction test
+
+    td = TrainData(locals())
+    srez_train._summarize_progress(td, test_img4_input, test_img4_original, prob, 69 , 'out')
+
+    print("Finish EVALUATING")
+
+def _get_inference_data():
+    # Setup global tensorflow state
+    sess, summary_writer = setup_tensorflow()
+
+    # Load single image to use for inference
+    if FLAGS.infile is None:
+        raise ValueError('Must specify inference input file through `--infile <filename>` command line argument')
+                         
+    if not tf.gfile.Exists(FLAGS.infile) or tf.gfile.IsDirectory(FLAGS.infile):
+        raise FileNotFoundError('File `%s` does not exist or is a directory' % (FLAGS.infile,))
+    
+    filenames    = [FLAGS.infile]
+    infer_images = srez_input.setup_inputs(sess, filenames)
+
+    print('Loading model...')
+    # Create inference model
+    infer_model  = srez_model.create_model(sess, infer_images)
+
+    # Load model parameters from checkpoint
+    checkpoint = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    try:
+        saver = tf.train.Saver()
+        saver.restore(sess, checkpoint.model_checkpoint_path)
+        del saver
+        del checkpoint
+    except:
+        raise RuntimeError('Unable to read checkpoint from `%s`' % (FLAGS.checkpoint_dir,))
+    print('Done.')
+
+    # Pack all for convenience
+    infer_data = srez_utils.Container(locals())
+
+    return infer_data
 
 def main(argv=None):
     # Training or showing off?
@@ -185,6 +277,8 @@ def main(argv=None):
         _demo()
     elif FLAGS.run == 'train':
         _train()
+    elif FLAGS.run == 'infer':
+        _evaluate()
 
 if __name__ == '__main__':
   tf.app.run()
