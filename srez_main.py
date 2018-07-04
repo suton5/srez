@@ -219,7 +219,7 @@ def _evaluate():
     # Prepare directories
     filenames = prepare_dirs(delete_train_dir=False)
 
-    # here you can put your images, just keep the 16 size
+    # UPDATE: Evaluate 4 images. NEEDS to be 4.
     test_filenames  = ['dataset/101287.jpg', 'dataset/101288.jpg','dataset/101289.jpg', 'dataset/101290.jpg']
 
     test_features,  test_labels  = srez_input.setup_inputs(sess, test_filenames)
