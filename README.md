@@ -34,6 +34,12 @@ Training with default settings: `python3 srez_main.py --run train`. The script w
 
 After the network has trained you can also produce an animation showing the evolution of the output by running `python3 srez_main.py --run demo`.
 
+# Using the model
+
+Ensure that 4 images are placed in the evaluation array test_filenames in the evaluate() function under srez_main.py .
+Then, use `python3 srez_main.py --run infer`
+
+
 # About the author
 
 [LinkedIn profile of David Garcia](https://ca.linkedin.com/in/david-garcia-70913311).
